@@ -57,15 +57,33 @@ The analysis focused on identifying linguistic trends, topical distributions, an
 
 ---
 
-## Key Areas of Analysis
+### STM Topic Prevalence by Truth Label
 
-- Linguistic patterns in political misinformation
-- Topic distribution analysis
-- Truthfulness category comparisons
-- Exploratory text analytics
-- Communication pattern evaluation
-- Political misinformation trends
-- Data visualization and reporting
+Analyzes how political topics vary across truthfulness categories using Structural Topic Modeling (STM). The visualization demonstrates that certain political topics appear more frequently in misinformation-related categories such as "false" and "pants-fire," while others are more associated with truthful statements.
+
+This analysis highlights how misinformation is often tied to specific issue domains rather than being evenly distributed across political discourse.
+
+![STM Topic Prevalence](images/stm_topic_prevalence.png)
+
+---
+
+### Word Embeddings — GloVe Vector Projection
+
+Visualizes semantic relationships between political terms using GloVe-style word embeddings projected into two-dimensional space with PCA. Words positioned closer together share stronger contextual relationships within the dataset.
+
+The visualization demonstrates how political language naturally forms semantic clusters around topics such as elections, healthcare, taxation, and government policy.
+
+![Word Embeddings Projection](images/glove_word_embeddings_projection.png)
+
+---
+
+### Word Embeddings — Frequent Terms in 2D Space
+
+Displays the spatial relationships between frequently occurring political terms after dimensionality reduction. This analysis helps illustrate how recurring political language patterns cluster together semantically across the corpus.
+
+The embedding analysis supports the broader findings of the project by revealing meaningful contextual groupings in political communication.
+
+![Frequent Terms Embedding](images/frequent_terms_embedding_space.png)
 
 ---
 
@@ -76,6 +94,18 @@ report/         -> Final analytical report
 presentation/   -> Presentation slides, video, and notes
 source/         -> Quarto source files and analysis workflow
 ```
+
+---
+
+## Key Areas of Analysis
+
+- Linguistic patterns in political misinformation
+- Topic distribution analysis
+- Truthfulness category comparisons
+- Exploratory text analytics
+- Communication pattern evaluation
+- Political misinformation trends
+- Data visualization and reporting
 
 ---
 
