@@ -1,0 +1,555 @@
+---
+title: "Linguistic and Topical Patterns in Political Misinformation: A Text Analysis of the LIAR Dataset"
+author: "Cruz Lawrence-Mayes"
+format:
+  pdf:
+    toc: true
+    number-sections: true
+    fig-cap-location: bottom
+fontsize: 11pt
+mainfont: "Times New Roman"
+geometry: margin=1in
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+# Global chunk settings for a clean PDF
+library(knitr)
+knitr::opts_chunk$set(
+  echo    = FALSE,
+  message = FALSE,
+  warning = FALSE
+)
+
+# Core libraries
+library(tidyverse)
+library(readr)
+library(quanteda)
+library(quanteda.textplots)
+library(quanteda.textstats)
+library(stm)            # STM
+library(topicmodels)    # LDA
+library(text2vec)       # embeddings workflow
+library(tidymodels)     # classification
+library(janitor)
+
+set.seed(1234)
+
+# Path to LIAR dataset (adjust if needed)
+liar_path <- "C:/Users/clawr/OneDrive/Desktop/Lab9_MisInfo/liar_dataset-master/liar_dataset-master"
+
+# Quick check that folder exists
+cat("LIAR path exists? ", dir.exists(liar_path), "\n")
+
+```
+
+# Title Page
+
+**Linguistic and Topical Patterns in Political Misinformation:\
+A Text Analysis of the LIAR Dataset**
+
+**Cruz Lawrence-Mayes**\
+SOCI 5155: Text Analysis\
+New Mexico State University\
+December 2025
+
+# Introduction
+
+This project examines how political misinformation is expressed through language using the LIAR dataset, which contains more than ten thousand fact-checked political statements labeled across six truthfulness categories. The goal of this project is to identify linguistic and topical patterns associated with misinformation and to assess whether computational text analysis techniques can reliably distinguish false statements from accurate ones. Text analysis techniques are well suited to this type of problem because they allow researchers to identify structure in large, unstructured datasets *(Stoltz & Taylor, Ch. 1)*.
+
+This analysis addresses four empirical questions. First, do political statements exhibit consistent topical structures, and can topic modeling help reveal major themes in the dataset? Topic modeling is commonly used to uncover patterns in large corpora by identifying clusters of co-occurring words *(Stoltz & Taylor, Ch. 9)*. Second, are certain topics more strongly associated with misinformation than with truthful claims? Third, can linguistic features alone support successful classification of misinformation, as explored in supervised learning methods *(Stoltz & Taylor, Ch. 10.2)*? And fourth, what does the semantic structure of political language look like when represented through word embeddings, which capture contextual relationships between terms *(Stoltz & Taylor, Ch. 10.5)*?
+
+To answer these questions, I apply four text analysis techniques from our course. Latent Dirichlet Allocation (LDA) is used to identify broad thematic clusters across the entire corpus, following the general modeling framework outlined by Stoltz and Taylor *(Ch. 9.3)*. Structural Topic Modeling (STM) extends this approach by estimating how topic prevalence changes across truth categories, a key advantage discussed in the textbook *(Stoltz & Taylor, Ch. 9.4)*. A Naive Bayes classifier is used to test whether misinformation can be predicted from textual features *(Stoltz & Taylor, Ch. 10.2)*. Finally, word embeddings (using a GloVe-style approach) are used to map political language into a semantic vector space and visualize how terms cluster together *(Stoltz & Taylor, Ch. 10.5–10.6)*.
+
+Together, these methods offer complementary perspectives on how political misinformation appears in text. Topic models reveal which themes dominate false versus accurate claims, the classifier assesses how distinguishable misinformation is from truthful content, and embeddings illustrate broader semantic patterns. The remainder of this report provides details on the dataset, preprocessing workflow, analytical methods, and findings.
+
+# Methods
+
+### Data Collection
+
+The data for this project come from the LIAR dataset, a widely used collection of fact-checked political claims originally compiled from PolitiFact. Each record contains a short political statement, the speaker, contextual information, and a truthfulness rating assigned by professional fact-checkers. The dataset includes six categories: pants-fire, false, barely-true, half-true, mostly-true, and true.
+
+This dataset is appropriate for studying misinformation because it directly encodes the accuracy of each statement. The labels allow for comparisons between truthful and deceptive claims, and the large sample size makes it suitable for topic modeling, classification, and semantic analysis. Using real-world text data in this way aligns with the applied research approach emphasized in the textbook *(Stoltz & Taylor, Ch. 2)*. The data were accessed locally from the project folder and processed in R using the quanteda, stm, tidyverse, and text2vec packages.
+
+### Data Preparation
+
+All text preprocessing followed standard procedures from our course and the *Mapping Texts* textbook. Preprocessing is essential for ensuring meaningful model performance *(Stoltz & Taylor, Ch. 6)*. I first removed empty or missing statements and standardized the truthfulness labels as an ordered factor. Every statement was then tokenized, converted to lowercase, and stripped of punctuation, numbers, and English stopwords, consistent with recommended workflows *(Stoltz & Taylor, Ch. 6.2–6.3)*.
+
+Using these cleaned tokens, I constructed a document-feature matrix (DFM) and trimmed it by removing very rare terms that appeared in fewer than five documents or fewer than ten total occurrences. Reducing sparsity improves the stability of downstream text models *(Stoltz & Taylor, Ch. 6.4)*. The same cleaned text was used as input for LDA, STM, and the classification model.
+
+For embeddings, I created a vocabulary of moderately frequent words and built a term co-occurrence matrix using a five-word window. This matrix served as the basis for training a GloVe-style model, an approach discussed in the textbook’s introduction to word embeddings *(Stoltz & Taylor, Ch. 10.5)*. The resulting word vectors were projected into two dimensions using PCA to visualize semantic clusters *(Stoltz & Taylor, Ch. 10.6)*. Together, these preprocessing steps ensured that all four techniques operated on consistent and meaningful textual data.
+
+# Findings
+
+## **1. Latent Dirichlet Allocation (LDA)**
+
+LDA was used as an unsupervised method to explore large-scale thematic patterns in political statements. LDA identifies latent themes in a corpus by modeling documents as mixtures of topics and topics as distributions of words *(Stoltz & Taylor, Ch. 9.3)*. This technique helps answer the question of whether political misinformation tends to revolve around specific issues or topics.
+
+The 10-topic model produced coherent and interpretable themes, including topics related to government spending, taxation, immigration, elections, and healthcare. The table of top words for each topic (displayed above) shows that political statements tend to cluster into recognizable issue domains. Topic prevalence was relatively balanced across topics, suggesting the dataset includes a broad range of political content rather than being dominated by one or two issues.
+
+While LDA does not incorporate truth labels directly, it provides a foundation for understanding which themes appear most frequently in political discourse overall. Interpreting these results in relation to misinformation requires additional modeling, which is addressed through STM in the next subsection.
+
+## **2. Structural Topic Modeling (STM)**
+
+STM extends LDA by allowing document metadata—in this case, truthfulness labels—to influence topic prevalence. Including covariates in topic modeling helps estimate how different groups emphasize different topics, a key strength of STM highlighted in the textbook *(Stoltz & Taylor, Ch. 9.4)*. This method directly addresses the empirical question of whether certain topics are more strongly associated with misinformation.
+
+The heatmap of topic prevalence by truthfulness reveals meaningful differences. Several topics appear more frequently in “pants-fire” and “false” statements, while others are more common in “true” and “mostly-true” categories. For example, Topic 1 and Topic 10 show higher prevalence in low-truthfulness categories, whereas Topic 2 and Topic 3 tend to appear more often in accurate statements. These patterns indicate that misinformation is not evenly distributed across the political landscape; instead, certain issue areas tend to attract a disproportionate amount of inaccurate or deceptive claims.
+
+STM therefore provides evidence that political misinformation is thematically structured. Different truth categories emphasize different topics, suggesting that certain kinds of political debates may be more vulnerable to misrepresentation or exaggeration.
+
+## **3. Classification of Misinformation**
+
+To evaluate whether linguistic features alone can predict misinformation, I trained a Naive Bayes classifier on the document-feature matrix. Naive Bayes is a commonly used technique for text classification due to its simplicity and effectiveness with high-dimensional data *(Stoltz & Taylor, Ch. 10.2)*. The model categorized statements as either “misinfo” (pants-fire or false) or “not_misinfo” (all other labels). This technique addresses the question of whether misinformation exhibits distinct, learnable language patterns.
+
+The confusion matrix displayed above shows that the classifier achieved an accuracy of approximately 57.3%, which is above chance but modest. This aligns with the textbook’s discussion of limitations in simple probabilistic classifiers when classes share similar vocabulary *(Stoltz & Taylor, Ch. 10.4)*. The model correctly identifies a substantial number of misinformation statements, but it also misclassifies a notable portion of both classes. This result is consistent with the idea that misinformation is linguistically subtle; deceptive statements often rely on similar vocabulary as truthful ones, making them difficult to distinguish purely on word frequencies.
+
+Even with this limitation, the classification results suggest that linguistic cues contain some predictive signal. Certain words and features appear more frequently in false statements, allowing for better-than-random performance. This provides partial support for the idea that misinformation has detectable stylistic or topical signatures, though additional features or more advanced models would likely improve accuracy.
+
+## **4. Word Embeddings (GloVe Model)**
+
+Word embeddings were used to examine the semantic structure of political language in the dataset. Embeddings map words into continuous vector space based on co-occurrence patterns, allowing researchers to explore semantic neighborhoods *(Stoltz & Taylor, Ch. 10.5)*. This method helps answer the broader question of how political statements cluster in meaning and whether words commonly used in misinformation contexts occupy distinct regions of semantic space.
+
+The visualization of embeddings shows clear clusters of semantically related terms. Words tied to economic policy, healthcare, elections, and immigration tend to group together, reflecting shared contextual usage. Dimensionality reduction techniques such as PCA make these high-dimensional structures interpretable *(Stoltz & Taylor, Ch. 10.6)*. This indicates that political language in the dataset is organized into meaningful semantic neighborhoods, even across thousands of statements written by different speakers.
+
+While embeddings alone do not distinguish true from false claims, they provide important context for interpreting the topic models. For instance, topics that appear more frequently in misinformation can be associated with tight semantic clusters, illustrating how these issue domains share vocabulary and rhetorical framing. Embeddings also demonstrate the high-dimensional structure of political discourse, revealing relationships between terms that are not always obvious from simple frequency-based analyses.
+
+# Conclusion / Executive Summary
+
+This project examined how political misinformation is expressed through language using four computational text analysis techniques. Each method offered a different perspective on the LIAR dataset, helping address the empirical questions I began with. Together, these methods highlight the importance of combining unsupervised and supervised approaches when analyzing large textual corpora *(Stoltz & Taylor, Ch. 11)*. Overall, the findings suggest that misinformation in political statements is not random; rather, it follows recognizable topical and linguistic patterns that can be identified through structured text analysis.
+
+The first question—whether political statements show consistent thematic structure—was addressed through LDA. The model revealed clear, interpretable topics related to elections, taxation, immigration, healthcare, and other policy areas. This confirmed that political discourse naturally clusters into distinct issue domains, regardless of a statement’s truthfulness *(Stoltz & Taylor, Ch. 9)*.
+
+STM built on this foundation by incorporating truth labels as covariates. The second empirical question asked whether certain topics appear more often in misinformation. STM results showed that some topics are indeed more prevalent among “pants-fire” and “false” statements, while others are more associated with accurate claims. This demonstrates how metadata-driven topic models can reveal nuanced differences between groups *(Stoltz & Taylor, Ch. 9.4)*.
+
+The Naive Bayes classifier answered the third question by testing whether linguistic features alone can predict misinformation. While the model achieved modest accuracy (57%), this aligns with expectations for simpler classifiers operating on complex and overlapping language *(Stoltz & Taylor, Ch. 10.4)*.
+
+Word embeddings addressed the final question by illustrating the broader semantic structure of the corpus. The embedding space showed meaningful clusters of related terms, highlighting how political language is organized around shared contexts and issue framings *(Stoltz & Taylor, Ch. 10.5–10.6)*.
+
+Taken together, these findings show that misinformation has identifiable topical and stylistic characteristics, though it remains challenging to detect with high accuracy based solely on surface-level text features. The project also reinforced key methodological lessons from the course, including the importance of preprocessing, evaluating model assumptions, and interpreting results in context *(Stoltz & Taylor, Ch. 6, Ch. 11)*. In future research, expanding the dataset to include temporal or speaker-specific features could reveal how misinformation evolves over time or varies across political actors.
+
+```{r}
+#| label: load_liar
+#| include: false
+
+# File paths
+train_file <- file.path(liar_path, "train.tsv")
+test_file  <- file.path(liar_path, "test.tsv")
+valid_file <- file.path(liar_path, "valid.tsv")
+
+# Read TSV files (no headers in original)
+train_raw <- read_tsv(train_file, col_names = FALSE, show_col_types = FALSE)
+test_raw  <- read_tsv(test_file,  col_names = FALSE, show_col_types = FALSE)
+valid_raw <- read_tsv(valid_file, col_names = FALSE, show_col_types = FALSE)
+
+# Assign column names based on LIAR documentation
+liar_cols <- c(
+  "id", "truth_label", "statement", "subject", "speaker",
+  "speaker_job", "state", "party",
+  "barely_true_ct", "false_ct", "half_true_ct",
+  "mostly_true_ct", "pants_on_fire_ct",
+  "context"
+)
+
+colnames(train_raw) <- liar_cols
+colnames(test_raw)  <- liar_cols
+colnames(valid_raw) <- liar_cols
+
+# Combine into one dataset for easier processing
+liar_all <- bind_rows(
+  train_raw %>% mutate(split = "train"),
+  valid_raw %>% mutate(split = "valid"),
+  test_raw  %>% mutate(split = "test")
+)
+
+# Simple sanity checks (printed to console, not PDF)
+cat("Rows in combined LIAR data:", nrow(liar_all), "\n")
+cat("Columns:", ncol(liar_all), "\n")
+print(table(liar_all$truth_label))
+
+```
+
+```{r}
+#| label: preprocess_text
+#| include: false
+
+# Basic cleaning: drop empty statements and set ordered truth labels
+liar_clean <- liar_all %>%
+  filter(!is.na(statement),
+         str_squish(statement) != "") %>%
+  mutate(
+    truth_label = factor(
+      truth_label,
+      levels = c("pants-fire", "false", "barely-true",
+                 "half-true", "mostly-true", "true"),
+      ordered = TRUE
+    ),
+    text = statement
+  )
+
+cat("Rows after removing empty statements:", nrow(liar_clean), "\n")
+
+# Quick doc length features (may be useful later)
+liar_clean <- liar_clean %>%
+  mutate(
+    n_chars = nchar(text),
+    n_words = str_count(text, "\\S+")
+  )
+
+# Build corpus and tokens
+liar_corpus <- corpus(liar_clean, text_field = "text")
+
+liar_tokens <- tokens(
+  liar_corpus,
+  remove_punct   = TRUE,
+  remove_numbers = TRUE,
+  remove_symbols = TRUE
+)
+
+liar_tokens <- tokens_tolower(liar_tokens)
+liar_tokens <- tokens_remove(liar_tokens, pattern = stopwords("en"))
+
+# Document-feature matrix (dfm), trimmed to reduce noise
+dfm_all <- dfm(liar_tokens)
+
+dfm_all <- dfm_trim(
+  dfm_all,
+  min_termfreq = 10,   # drop very rare terms
+  min_docfreq  = 5     # must appear in at least 5 docs
+)
+
+# Print a small summary to console
+dfm_all
+
+```
+
+```{r}
+#| label: lda_model
+#| include: false
+
+# Convert dfm to a format topicmodels can use
+dtm_all <- quanteda::convert(dfm_all, to = "topicmodels")
+
+# Choose number of topics (you can tweak later if needed)
+k_topics <- 10
+
+# Fit LDA model using Gibbs sampling
+lda_fit <- LDA(
+  dtm_all,
+  k = k_topics,
+  method = "Gibbs",
+  control = list(
+    seed   = 1234,
+    burnin = 1000,
+    iter   = 2000,
+    thin   = 100
+  )
+)
+
+# Top 10 terms per topic
+lda_top_terms <- terms(lda_fit, 10)
+print(lda_top_terms)
+
+# Document–topic proportions
+lda_posterior <- posterior(lda_fit)
+lda_gamma     <- lda_posterior$topics  # rows = docs, cols = topics
+
+# Average prevalence of each topic across documents
+lda_topic_prevalence <- colMeans(lda_gamma)
+cat("Average topic prevalence:\n")
+print(round(lda_topic_prevalence, 3))
+
+```
+
+```{r}
+#| label: lda_table
+#| include: false
+
+library(tidyverse)
+
+# Extract the top terms per topic (10 per topic)
+lda_terms <- terms(lda_fit, 10)
+
+# Convert to tibble
+lda_topics_table <- tibble(
+  topic = paste0("Topic_", 1:k_topics),
+  top_terms = apply(lda_terms, 2, paste, collapse = ", "),
+  prevalence = round(colMeans(lda_gamma), 4)
+)
+
+print(lda_topics_table)
+
+```
+
+```{r}
+#| label: stm_model
+#| include: false
+
+# Convert dfm to stm input (docs, vocab, metadata)
+stm_input <- quanteda::convert(dfm_all, to = "stm")
+
+docs_stm  <- stm_input$documents
+vocab_stm <- stm_input$vocab
+meta_stm  <- stm_input$meta
+
+# Ensure truth_label is an ordered factor in the metadata
+meta_stm$truth_label <- factor(
+  meta_stm$truth_label,
+  levels = c("pants-fire", "false", "barely-true",
+             "half-true", "mostly-true", "true"),
+  ordered = TRUE
+)
+
+# Number of topics (keep same as LDA for comparability)
+k_stm <- 10
+
+# Fit STM model with truth_label as a prevalence covariate
+stm_fit <- stm(
+  documents  = docs_stm,
+  vocab      = vocab_stm,
+  data       = meta_stm,
+  K          = k_stm,
+  prevalence = ~ truth_label,
+  max.em.its = 75,
+  init.type  = "Spectral",
+  seed       = 1234
+)
+
+# Show top words per topic
+stm_top_terms <- labelTopics(stm_fit, n = 10)
+print(stm_top_terms)
+
+```
+
+```{r}
+#| label: stm_prevalence
+#| include: false
+
+library(tidyverse)
+
+# stm_fit$theta is a document x topic matrix of topic proportions
+theta_mat <- stm_fit$theta
+
+# Put into a tibble and attach truth_label from meta_stm
+stm_topic_df <- as_tibble(theta_mat) %>%
+  mutate(truth_label = meta_stm$truth_label)
+
+# Average topic prevalence within each truth label
+stm_topic_means <- stm_topic_df %>%
+  group_by(truth_label) %>%
+  summarise(across(starts_with("V"), mean), .groups = "drop")
+
+# Convert to long format for easier interpretation / plotting
+stm_topic_means_long <- stm_topic_means %>%
+  pivot_longer(
+    cols = starts_with("V"),
+    names_to = "topic",
+    values_to = "mean_prevalence"
+  ) %>%
+  mutate(
+    topic = paste0("Topic_", as.integer(str_remove(topic, "V")))
+  )
+
+print(stm_topic_means_long)
+
+```
+
+```{r}
+#| label: classify_misinfo
+#| include: false
+
+library(quanteda.textmodels)
+
+# Create a binary misinfo label on the dfm's docvars
+docvars(dfm_all, "misinfo") <- ifelse(
+  docvars(dfm_all, "truth_label") %in% c("pants-fire", "false"),
+  "misinfo",
+  "not_misinfo"
+)
+
+# Train/test split using original LIAR splits
+dfm_train <- dfm_all[docvars(dfm_all, "split") == "train", ]
+dfm_test  <- dfm_all[docvars(dfm_all, "split") == "test",  ]
+
+y_train <- docvars(dfm_train, "misinfo")
+y_test  <- docvars(dfm_test,  "misinfo")
+
+# Fit a simple Naive Bayes classifier
+nb_fit <- textmodel_nb(dfm_train, y_train)
+
+# Predict on the test set
+nb_pred <- predict(nb_fit, newdata = dfm_test)
+
+# Confusion matrix + accuracy
+conf_mat <- table(
+  predicted = nb_pred,
+  actual    = y_test
+)
+
+accuracy <- mean(nb_pred == y_test)
+
+cat("Confusion matrix (misinfo vs not_misinfo):\n")
+print(conf_mat)
+cat("\nAccuracy:", round(accuracy, 3), "\n")
+
+```
+
+```{r}
+#| label: lda_topics_display
+#| echo: false
+#| warning: false
+#| message: false
+
+lda_topics_table %>%
+  arrange(desc(prevalence))
+
+```
+
+```{r}
+#| label: stm_topics_table
+#| include: false
+
+stm_labels <- labelTopics(stm_fit, n = 10)
+
+stm_topics_table <- tibble(
+  topic = paste0("Topic_", 1:k_stm),
+  top_terms = apply(stm_labels$prob, 1, paste, collapse = ", ")
+)
+
+print(stm_topics_table)
+
+```
+
+```{r}
+#| label: stm_heatmap
+#| echo: false
+#| warning: false
+#| message: false
+
+library(ggplot2)
+
+ggplot(stm_topic_means_long,
+       aes(x = topic, y = truth_label, fill = mean_prevalence)) +
+  geom_tile() +
+  scale_fill_gradient() +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  labs(
+    title = "STM Topic Prevalence by Truth Label",
+    x = "Topic",
+    y = "Truthfulness Category",
+    fill = "Mean\nPrevalence"
+  )
+
+```
+
+```{r}
+#| label: nb_confusion_display
+#| echo: false
+#| warning: false
+#| message: false
+
+conf_mat
+
+```
+
+```{r}
+#| label: embeddings
+#| include: false
+
+library(text2vec)
+library(ggplot2)
+library(tidyverse)
+
+# Prepare text for embeddings
+tokens_list <- liar_clean$text
+
+# Create iterator
+it <- itoken(tokens_list, progressbar = FALSE)
+
+# Create vocabulary
+vocab <- create_vocabulary(it)
+vocab <- prune_vocabulary(vocab, term_count_min = 20)
+
+# Vectorizer
+vectorizer <- vocab_vectorizer(vocab)
+
+# Create term-cooccurrence matrix (TCM)
+tcm <- create_tcm(it, vectorizer, skip_grams_window = 5)
+
+# Fit GloVe word embeddings
+glove_model <- GlobalVectors$new(rank = 50, x_max = 10)
+glove_fit <- glove_model$fit_transform(tcm, n_iter = 20)
+
+# Combine main + context vectors
+word_vectors <- glove_fit + t(glove_model$components)
+
+# Convert to tibble for plotting
+word_vec_tbl <- as_tibble(word_vectors, rownames = "term")
+
+# Reduce to 2 dimensions using PCA
+pca <- prcomp(word_vec_tbl[, -1], scale. = TRUE)
+word_vec_2d <- bind_cols(
+  tibble(term = word_vec_tbl$term),
+  as_tibble(pca$x[, 1:2])
+)
+
+# Keep only moderately frequent words for plotting
+plot_words <- word_vec_2d %>% filter(term %in% vocab$term[1:300])
+
+# Plot the embeddings
+ggplot(plot_words, aes(x = PC1, y = PC2, label = term)) +
+  geom_point(alpha = 0.6) +
+  geom_text(size = 3, vjust = 1.5, alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Word Embeddings (PCA Projection of GloVe Vectors)",
+    x = "PC1",
+    y = "PC2"
+  )
+
+```
+
+```{r}
+#| label: embeddings_plot
+#| echo: false
+#| warning: false
+#| message: false
+
+ggplot(plot_words, aes(x = PC1, y = PC2, label = term)) +
+  geom_point(alpha = 0.6) +
+  geom_text(size = 3, vjust = 1.5, alpha = 0.7) +
+  theme_minimal() +
+  labs(
+    title = "Word Embeddings (PCA Projection of GloVe Vectors)",
+    x = "PC1",
+    y = "PC2"
+  )
+
+```
+
+```{r}
+#| label: embeddings_plot_clean
+#| echo: false
+#| warning: false
+#| message: false
+
+# Join embeddings with term frequencies and keep the most frequent words
+embedding_top <- word_vec_2d %>%
+  inner_join(vocab %>% select(term, term_count), by = "term") %>%
+  slice_max(order_by = term_count, n = 120)
+
+ggplot(embedding_top, aes(x = PC1, y = PC2, label = term)) +
+  geom_point(alpha = 0.6) +
+  geom_text(size = 3, vjust = 1.5, alpha = 0.8) +
+  theme_minimal() +
+  labs(
+    title = "Word Embeddings (Top Frequent Terms in 2D Space)",
+    x = "PC1",
+    y = "PC2"
+  )
+
+```
